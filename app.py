@@ -742,6 +742,92 @@ def convert_video_to_h264(input_path, output_path):
         return False
 
 
+# def exercise_page(exercise_name):
+#     st.markdown(f'<div class="exercise-title">{exercise_name.title()} Form Tracker</div>', unsafe_allow_html=True)
+    
+#     left_col, right_col = st.columns([1, 1])
+    
+#     with left_col:
+#         instructions = {
+#             'pushup': """
+#             <div class="exercise-instructions">
+#                 <h2 class="instructions-title">Push-up Instructions:</h2>
+#                 <div class="camera-note">
+#                     NOTE: Position yourself so your left side (left shoulder, left arm, left leg) faces the camera. Ensure Only 1 Person is in the frame.
+#                 </div>
+#                 <ol>
+#                     <li>Start in a plank position with hands shoulder-width apart</li>
+#                     <li>Keep your core tight and back straight</li>
+#                     <li>Lower your body until chest nearly touches the ground</li>
+#                     <li>Push back up to starting position</li>
+#                     <li>Maintain proper form throughout the movement</li>
+#                 </ol>
+#             </div>
+#             """,
+#             'deadlift': """
+#             <div class="exercise-instructions">
+#                 <h2 class="instructions-title">Deadlift Instructions:</h2>
+#                 <div class="camera-note">
+#                     NOTE: Position yourself so your left side (left shoulder, left arm, left leg) faces the camera. Ensure Only 1 Person is in the frame.
+#                 </div>
+#                 <ol>
+#                     <li>Stand with feet hip-width apart</li>
+#                     <li>Bend at hips and knees to grasp the bar</li>
+#                     <li>Keep back straight and chest up</li>
+#                     <li>Push through heels to lift the bar</li>
+#                     <li>Return to starting position with controlled movement</li>
+#                 </ol>
+#             </div>
+#             """,
+#             'bicep': """
+#             <div class="exercise-instructions">
+#                 <h2 class="instructions-title">Bicep Curl Instructions:</h2>
+#                 <div class="camera-note">
+#                     NOTE: Position yourself so your left side (left shoulder, left arm, left leg) faces the camera. Ensure Only 1 Person is in the frame.
+#                 </div>
+#                 <ol>
+#                     <li>Stand with feet shoulder-width apart</li>
+#                     <li>Hold dumbbells at your sides</li>
+#                     <li>Keep elbows close to your body</li>
+#                     <li>Curl weights up towards shoulders</li>
+#                     <li>Lower weights back down with control</li>
+#                 </ol>
+#             </div>
+#             """
+#         }
+#         st.markdown(instructions[exercise_name], unsafe_allow_html=True)
+
+
+#     with right_col:
+#         st.markdown('<div class="section-container">', unsafe_allow_html=True)
+#         st.markdown('<p class="section-title">Demo Video</p>', unsafe_allow_html=True)
+        
+#         # Use the new display_video function
+#         display_cached_video(exercise_name)
+        
+#         st.markdown('</div>', unsafe_allow_html=True)
+
+#         # Interactive sections
+#         tab1 = st.tabs(["📤 Upload Video"])  # Removed second tab
+#         #tab1, tab2 = st.tabs(["📤 Upload Video", "📹 Live Tracking"])
+        
+#     with tab1:
+#         st.markdown('<div class="section-container">', unsafe_allow_html=True)
+#         uploaded_file = st.file_uploader(
+#             "Upload a video for form analysis",
+#             type=['mp4', 'mov', 'avi'],
+#             key=f"upload_{exercise_name}"
+#         )
+#         if uploaded_file:
+#             handle_video_upload(exercise_name, uploaded_file)
+#         st.markdown('</div>', unsafe_allow_html=True)
+        
+#         # with tab2:
+#         #     st.markdown('<div class="section-container">', unsafe_allow_html=True)
+#         #     if st.button("Start Live Tracking", key=f"live_{exercise_name}"):
+#         #         st.info("Live tracking functionality will be implemented here.")
+#         #     st.markdown('</div>', unsafe_allow_html=True)
+
 def exercise_page(exercise_name):
     st.markdown(f'<div class="exercise-title">{exercise_name.title()} Form Tracker</div>', unsafe_allow_html=True)
     
@@ -797,7 +883,6 @@ def exercise_page(exercise_name):
         }
         st.markdown(instructions[exercise_name], unsafe_allow_html=True)
 
-
     with right_col:
         st.markdown('<div class="section-container">', unsafe_allow_html=True)
         st.markdown('<p class="section-title">Demo Video</p>', unsafe_allow_html=True)
@@ -807,12 +892,9 @@ def exercise_page(exercise_name):
         
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # Interactive sections
-        tab1 = st.tabs(["📤 Upload Video"])  # Removed second tab
-        #tab1, tab2 = st.tabs(["📤 Upload Video", "📹 Live Tracking"])
-        
-    with tab1:
-        st.markdown('<div class="section-container">', unsafe_allow_html=True)
+        # Interactive sections - Upload Video only
+        st.markdown('<div class="upload-section">', unsafe_allow_html=True)
+        st.markdown('### Upload Video for Analysis', unsafe_allow_html=True)
         uploaded_file = st.file_uploader(
             "Upload a video for form analysis",
             type=['mp4', 'mov', 'avi'],
@@ -821,12 +903,6 @@ def exercise_page(exercise_name):
         if uploaded_file:
             handle_video_upload(exercise_name, uploaded_file)
         st.markdown('</div>', unsafe_allow_html=True)
-        
-        # with tab2:
-        #     st.markdown('<div class="section-container">', unsafe_allow_html=True)
-        #     if st.button("Start Live Tracking", key=f"live_{exercise_name}"):
-        #         st.info("Live tracking functionality will be implemented here.")
-        #     st.markdown('</div>', unsafe_allow_html=True)
 
 
 def main():
