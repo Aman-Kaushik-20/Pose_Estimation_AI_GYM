@@ -99,10 +99,15 @@ def process_video(input_path):
                         if angle < 40 and stage == 'down':
                             stage = "up"
                             counter += 1
-                            # log_file.write(f"Rep {counter} detected at frame {frame_count}\n")
+                            log_file.write(f"Rep {counter} completed at frame {frame_count}\n")
                         
-                    except:
-                        pass
+                        # Log the angle for form analysis
+                        if frame_count % 30 == 0:  # Log every 30 frames
+                            log_file.write(f"Frame {frame_count}: Curl angle = {angle:.1f}°\n")
+                        
+                    except Exception as e:
+                        log_file.write(f"Frame {frame_count}: Failed to detect pose landmarks\n")
+                        continue
                     
                     # Draw overlay and stats
                     overlay = image.copy()
@@ -147,10 +152,15 @@ def process_video(input_path):
                 log_file.write(f"\nProcessing completed at: {datetime.now()}\n")
                 log_file.write(f"Total frames processed: {frame_count}\n")
                 log_file.write(f"Total reps counted: {counter}\n")
+                
+                # Add form analysis summary
+                if counter > 0:
+                    log_file.write("\nForm Analysis Summary:\n")
+                    log_file.write("- Proper bicep curl range: 40° to 140°\n")
+                    log_file.write(f"- Average frames per rep: {frame_count/counter:.1f}\n")
         
         cap.release()
         out.release()
-        cv2.destroyAllWindows()
         
         return temp_video.name, temp_log.name
         
