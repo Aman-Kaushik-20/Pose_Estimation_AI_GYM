@@ -48,6 +48,7 @@ from datetime import datetime
 import tempfile
 from pathlib import Path
 import subprocess
+import platform
 # Import exercise processors
 from exercises.uploaded_pushup_track import process_video as pushup_process_video
 from exercises.uploaded_deadlift_track import process_video as deadlift_process_video
@@ -372,6 +373,12 @@ def get_processor(exercise_name):
 
 def handle_video_upload(exercise_name, uploaded_file):
     if uploaded_file is not None:
+        # Check ffmpeg installation first
+        if not check_ffmpeg():
+            st.error("ffmpeg is required for video processing!")
+            st.markdown(install_ffmpeg_message())
+            return
+            
         processors = {
             'pushup': pushup_process_video,
             'deadlift': deadlift_process_video,
@@ -382,56 +389,65 @@ def handle_video_upload(exercise_name, uploaded_file):
         if processor:
             temp_files = []
             try:
-                # Create temporary files
+                # Create progress bar
+                progress_text = "Processing video..."
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                # Save uploaded file
+                status_text.text("Saving uploaded video...")
+                progress_bar.progress(20)
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_input:
                     temp_input.write(uploaded_file.read())
                     temp_input_path = temp_input.name
                     temp_files.append(temp_input_path)
                 
+                # Create temporary output path
                 temp_output_path = tempfile.mktemp(suffix='_h264.mp4')
                 temp_files.append(temp_output_path)
                 
-                st.write(f"Processing {exercise_name} video...")
+                # Process video
+                status_text.text(f"Processing {exercise_name} video...")
+                progress_bar.progress(40)
                 processed_path, log_path = processor(temp_input_path)
                 temp_files.extend([processed_path, log_path])
                 
+                # Convert video
+                status_text.text("Converting video format...")
+                progress_bar.progress(70)
                 if convert_video_to_h264(processed_path, temp_output_path):
-                    # Read the video file in chunks to avoid memory issues
+                    progress_bar.progress(90)
+                    
+                    # Read and display video
+                    status_text.text("Preparing video for display...")
                     with open(temp_output_path, 'rb') as video_file:
                         video_bytes = video_file.read()
                     
-                    # Display video after ensuring file is closed
+                    progress_bar.progress(100)
+                    status_text.empty()
+                    progress_bar.empty()
+                    
+                    # Display video
                     st.video(video_bytes, muted=True, autoplay=True)
                     
                     # Display log if available
                     if log_path and os.path.exists(log_path):
                         with open(log_path, 'r') as log:
                             st.text(log.read())
-                else:
-                    st.error("Error converting video format")
                 
             except Exception as e:
                 st.error(f"Error processing video: {str(e)}")
-                raise e  # For debugging
-            
+                
             finally:
-                # Clean up all temporary files
+                # Clean up temporary files
                 for file_path in temp_files:
                     try:
                         if file_path and os.path.exists(file_path):
                             os.unlink(file_path)
-                    except PermissionError:
-                        # If file is still in use, schedule it for deletion on next reboot
-                        try:
-                            import ctypes
-                            kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
-                            kernel32.MoveFileExW.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32]
-                            kernel32.MoveFileExW(file_path, None, 4)  # MOVEFILE_DELAY_UNTIL_REBOOT = 4
-                        except:
-                            pass  # If we can't schedule for deletion, we'll have to leave it
+                    except Exception as e:
+                        st.warning(f"Could not delete temporary file {file_path}: {str(e)}")
         else:
             st.error("Exercise processor not found!")
-
 
 
 def get_demo_video_path(exercise_name):
@@ -525,6 +541,47 @@ def download_from_drive(url):
     
 
 
+def check_ffmpeg():
+    """Check if ffmpeg is installed and accessible"""
+    try:
+        subprocess.run(['ffmpeg', '-version'], capture_output=True, check=True)
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return False
+
+def install_ffmpeg_message():
+    """Return platform-specific ffmpeg installation instructions"""
+    os_name = platform.system().lower()
+    if os_name == 'windows':
+        return """
+        Please install ffmpeg using one of these methods:
+        1. Using Chocolatey (recommended):
+           - Open PowerShell as Administrator
+           - Run: choco install ffmpeg
+        
+        2. Manual installation:
+           - Download from: https://www.gyan.dev/ffmpeg/builds/
+           - Add ffmpeg to your system PATH
+        """
+    elif os_name == 'darwin':  # macOS
+        return """
+        Please install ffmpeg using one of these methods:
+        1. Using Homebrew (recommended):
+           - Open Terminal
+           - Run: brew install ffmpeg
+        
+        2. Using MacPorts:
+           - Run: sudo port install ffmpeg
+        """
+    else:  # Linux
+        return """
+        Please install ffmpeg using your package manager:
+        - Ubuntu/Debian: sudo apt-get install ffmpeg
+        - Fedora: sudo dnf install ffmpeg
+        - Arch Linux: sudo pacman -S ffmpeg
+        """
+
+
 import streamlit as st
 import tempfile
 import os
@@ -543,6 +600,10 @@ VIDEO_URLS = {
 }
 
 def preload_videos():
+    if not check_ffmpeg():
+        st.error("ffmpeg is required for video processing!")
+        st.markdown(install_ffmpeg_message())
+        return
     """
     Preload all videos into cache at app startup
     """
@@ -654,37 +715,31 @@ def download_from_drive(url):
     
     return temp_path
 
-def convert_to_h264(input_path):
-    """Convert video to H264 format"""
-    temp_output = tempfile.NamedTemporaryFile(delete=False, suffix='_h264.mp4')
-    temp_output_path = temp_output.name
-    temp_output.close()
+def convert_video_to_h264(input_path, output_path):
+    """Convert video to H264 format with error handling"""
+    if not check_ffmpeg():
+        st.error("ffmpeg is not installed!")
+        st.markdown(install_ffmpeg_message())
+        return False
+        
+    command = [
+        "ffmpeg",
+        "-i", input_path,
+        "-vcodec", "libx264",
+        "-acodec", "aac",
+        "-y",  # Overwrite output file if it exists
+        output_path
+    ]
     
     try:
-        command = [
-            "ffmpeg",
-            "-i", input_path,
-            "-vcodec", "libx264",
-            "-acodec", "aac",
-            "-y",
-            temp_output_path
-        ]
-        
         result = subprocess.run(command, capture_output=True, text=True)
-        
-        if result.returncode == 0:
-            return temp_output_path
-        else:
-            st.error(f"Conversion error: {result.stderr}")
-            os.unlink(temp_output_path)
-            return None
-            
+        if result.returncode != 0:
+            st.error(f"FFmpeg conversion error: {result.stderr}")
+            return False
+        return True
     except Exception as e:
-        st.error(f"Error during conversion: {str(e)}")
-        if os.path.exists(temp_output_path):
-            os.unlink(temp_output_path)
-        return None
-
+        st.error(f"Error during video conversion: {str(e)}")
+        return False
 
 
 def exercise_page(exercise_name):
