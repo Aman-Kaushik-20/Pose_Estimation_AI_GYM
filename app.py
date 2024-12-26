@@ -808,7 +808,8 @@ def exercise_page(exercise_name):
         st.markdown('</div>', unsafe_allow_html=True)
 
         # Interactive sections
-        tab1, tab2 = st.tabs(["📤 Upload Video", "📹 Live Tracking"])
+        tab1 = st.tabs(["📤 Upload Video"])  # Removed second tab
+        #tab1, tab2 = st.tabs(["📤 Upload Video", "📹 Live Tracking"])
         
     with tab1:
         st.markdown('<div class="section-container">', unsafe_allow_html=True)
@@ -821,11 +822,11 @@ def exercise_page(exercise_name):
             handle_video_upload(exercise_name, uploaded_file)
         st.markdown('</div>', unsafe_allow_html=True)
         
-        with tab2:
-            st.markdown('<div class="section-container">', unsafe_allow_html=True)
-            if st.button("Start Live Tracking", key=f"live_{exercise_name}"):
-                st.info("Live tracking functionality will be implemented here.")
-            st.markdown('</div>', unsafe_allow_html=True)
+        # with tab2:
+        #     st.markdown('<div class="section-container">', unsafe_allow_html=True)
+        #     if st.button("Start Live Tracking", key=f"live_{exercise_name}"):
+        #         st.info("Live tracking functionality will be implemented here.")
+        #     st.markdown('</div>', unsafe_allow_html=True)
 
 
 def main():
