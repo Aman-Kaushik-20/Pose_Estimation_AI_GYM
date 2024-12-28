@@ -48,11 +48,16 @@ from datetime import datetime
 import tempfile
 from pathlib import Path
 import subprocess
-import platform
 # Import exercise processors
 from exercises.uploaded_pushup_track import process_video as pushup_process_video
 from exercises.uploaded_deadlift_track import process_video as deadlift_process_video
 from exercises.uploaded_bicep_track import process_video as bicep_process_video
+from exercises.live_pushup_track import live_pushup_tracking as pushup_live_track
+from exercises.live_deadlift_track import live_deadlift_tracking as deadlift_live_track
+from exercises.live_bicep_track import live_bicep_tracking as bicep_live_track
+
+
+
 # Set page config
 st.set_page_config(
     page_title="Fitness Form Tracker",
@@ -61,7 +66,7 @@ st.set_page_config(
 )
 
 # Initialize session state variables
-if 'current_page' not in st.session_state:
+if 'current_page' not in st.session_state: 
     st.session_state.current_page = 'home'
 
 def set_background():
@@ -336,16 +341,66 @@ def exercise_selection_page():
         st.markdown('</div></div>', unsafe_allow_html=True)
 
 def handle_live_tracking(exercise_name):
-    """Handle live video processing for the selected exercise"""
-    processor = get_processor(exercise_name)
-    if processor:
-        st.write(f"Starting live {exercise_name} tracking...")
+    """
+    Handle live video processing for the selected exercise.
+    
+    Args:
+        exercise_name (str): Name of the exercise ('pushup', 'deadlift', or 'bicep')
+    """
+    # Import the appropriate live tracking module based on exercise
+    try:
+        if exercise_name == 'pushup':
+            tracking_function = pushup_live_track
+        elif exercise_name == 'deadlift':
+            tracking_function = deadlift_live_track
+        elif exercise_name == 'bicep':
+            tracking_function = bicep_live_track
+        else:
+            st.error("Invalid exercise selected!")
+            return
+        
+        # Create a placeholder for the video feed
+        video_placeholder = st.empty()
+        
+        # Create status indicators
+        status_text = st.empty()
+        progress_bar = st.progress(0)
+        
+        # Display initial status
+        status_text.text("Initializing camera...")
+        
         try:
-            processor.live_process_video()
+            # Check if camera is available
+            cap = cv2.VideoCapture(0)
+            if not cap.isOpened():
+                st.error("Error: Could not access the webcam. Please make sure it's connected and not being used by another application.")
+                cap.release()
+                return
+            cap.release()
+            
+            # Update status
+            status_text.text(f"Starting {exercise_name} tracking. Press 'q' in the video window to stop.")
+            
+            # Start the live tracking
+            tracking_function()
+            
+            # Clear status indicators after tracking ends
+            status_text.empty()
+            progress_bar.empty()
+            
         except Exception as e:
             st.error(f"Error during live tracking: {str(e)}")
-    else:
-        st.error("Exercise processor not found!")
+            if 'cap' in locals():
+                cap.release()
+            cv2.destroyAllWindows()
+            
+    except ImportError as e:
+        st.error(f"Could not load the {exercise_name} tracking module: {str(e)}")
+    except Exception as e:
+        st.error(f"An unexpected error occurred: {str(e)}")
+    finally:
+        # Ensure we always clean up
+        cv2.destroyAllWindows()
 
 
 def convert_video_to_h264(input_path, output_path):
@@ -373,12 +428,6 @@ def get_processor(exercise_name):
 
 def handle_video_upload(exercise_name, uploaded_file):
     if uploaded_file is not None:
-        # Check ffmpeg installation first
-        if not check_ffmpeg():
-            st.error("ffmpeg is required for video processing!")
-            st.markdown(install_ffmpeg_message())
-            return
-            
         processors = {
             'pushup': pushup_process_video,
             'deadlift': deadlift_process_video,
@@ -389,66 +438,94 @@ def handle_video_upload(exercise_name, uploaded_file):
         if processor:
             temp_files = []
             try:
-                # Create progress bar
-                progress_text = "Processing video..."
-                progress_bar = st.progress(0)
-                status_text = st.empty()
-                
-                # Save uploaded file
-                status_text.text("Saving uploaded video...")
-                progress_bar.progress(20)
+                # Create temporary files
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_input:
                     temp_input.write(uploaded_file.read())
                     temp_input_path = temp_input.name
                     temp_files.append(temp_input_path)
                 
-                # Create temporary output path
-                temp_output_path = tempfile.mktemp(suffix='_h264.mp4')
-                temp_files.append(temp_output_path)
+                # Create temp files for both original and processed videos
+                temp_original_h264 = tempfile.mktemp(suffix='_original_h264.mp4')
+                temp_files.append(temp_original_h264)
                 
-                # Process video
-                status_text.text(f"Processing {exercise_name} video...")
-                progress_bar.progress(40)
+                # Show processing status
+                status_placeholder = st.empty()
+                status_placeholder.info("Processing video... Please wait.")
+                
+                # Process the video first
                 processed_path, log_path = processor(temp_input_path)
                 temp_files.extend([processed_path, log_path])
                 
-                # Convert video
-                status_text.text("Converting video format...")
-                progress_bar.progress(70)
-                if convert_video_to_h264(processed_path, temp_output_path):
-                    progress_bar.progress(90)
+                # Convert processed video
+                temp_processed_h264 = tempfile.mktemp(suffix='_processed_h264.mp4')
+                temp_files.append(temp_processed_h264)
+                
+                # Convert both videos to h264
+                original_success = convert_video_to_h264(temp_input_path, temp_original_h264)
+                processed_success = convert_video_to_h264(processed_path, temp_processed_h264)
+                
+                if original_success and processed_success:
+                    # Clear the processing status
+                    status_placeholder.empty()
                     
-                    # Read and display video
-                    status_text.text("Preparing video for display...")
-                    with open(temp_output_path, 'rb') as video_file:
-                        video_bytes = video_file.read()
+                    # Create two columns for side-by-side display
+                    col1, col2 = st.columns(2)
                     
-                    progress_bar.progress(100)
-                    status_text.empty()
-                    progress_bar.empty()
+                    with col1:
+                        st.markdown("### Original Video")
+                        with open(temp_original_h264, 'rb') as video_file:
+                            video_bytes = video_file.read()
+                        st.video(video_bytes, muted=True, autoplay=True)
                     
-                    # Display video
-                    st.video(video_bytes, muted=True, autoplay=True)
+                    with col2:
+                        st.markdown("### Processed Results")
+                        with open(temp_processed_h264, 'rb') as video_file:
+                            video_bytes = video_file.read()
+                        st.video(video_bytes, muted=True, autoplay=True)
                     
-                    # Display log if available
+                    # Display log in expandable section below both videos
                     if log_path and os.path.exists(log_path):
-                        with open(log_path, 'r') as log:
-                            st.text(log.read())
+                        with st.expander("Show Analysis Details"):
+                            with open(log_path, 'r') as log:
+                                st.text(log.read())
+                else:
+                    st.error("Error converting video formats")
                 
             except Exception as e:
                 st.error(f"Error processing video: {str(e)}")
-                
+                raise e  # For debugging
+            
             finally:
-                # Clean up temporary files
+                # Clean up all temporary files
                 for file_path in temp_files:
                     try:
                         if file_path and os.path.exists(file_path):
                             os.unlink(file_path)
-                    except Exception as e:
-                        st.warning(f"Could not delete temporary file {file_path}: {str(e)}")
+                    except PermissionError:
+                        try:
+                            import ctypes
+                            kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+                            kernel32.MoveFileExW.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32]
+                            kernel32.MoveFileExW(file_path, None, 4)
+                        except:
+                            pass
         else:
             st.error("Exercise processor not found!")
 
+def add_video_css():
+    st.markdown("""
+        <style>
+        .stVideo {
+            width: 100%;
+            margin: 0 auto;
+        }
+        .video-container video {
+            width: 100%;
+            max-height: 400px;
+            object-fit: contain;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
 def get_demo_video_path(exercise_name):
     """
@@ -541,47 +618,6 @@ def download_from_drive(url):
     
 
 
-def check_ffmpeg():
-    """Check if ffmpeg is installed and accessible"""
-    try:
-        subprocess.run(['ffmpeg', '-version'], capture_output=True, check=True)
-        return True
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return False
-
-def install_ffmpeg_message():
-    """Return platform-specific ffmpeg installation instructions"""
-    os_name = platform.system().lower()
-    if os_name == 'windows':
-        return """
-        Please install ffmpeg using one of these methods:
-        1. Using Chocolatey (recommended):
-           - Open PowerShell as Administrator
-           - Run: choco install ffmpeg
-        
-        2. Manual installation:
-           - Download from: https://www.gyan.dev/ffmpeg/builds/
-           - Add ffmpeg to your system PATH
-        """
-    elif os_name == 'darwin':  # macOS
-        return """
-        Please install ffmpeg using one of these methods:
-        1. Using Homebrew (recommended):
-           - Open Terminal
-           - Run: brew install ffmpeg
-        
-        2. Using MacPorts:
-           - Run: sudo port install ffmpeg
-        """
-    else:  # Linux
-        return """
-        Please install ffmpeg using your package manager:
-        - Ubuntu/Debian: sudo apt-get install ffmpeg
-        - Fedora: sudo dnf install ffmpeg
-        - Arch Linux: sudo pacman -S ffmpeg
-        """
-
-
 import streamlit as st
 import tempfile
 import os
@@ -600,10 +636,6 @@ VIDEO_URLS = {
 }
 
 def preload_videos():
-    if not check_ffmpeg():
-        st.error("ffmpeg is required for video processing!")
-        st.markdown(install_ffmpeg_message())
-        return
     """
     Preload all videos into cache at app startup
     """
@@ -715,118 +747,38 @@ def download_from_drive(url):
     
     return temp_path
 
-def convert_video_to_h264(input_path, output_path):
-    """Convert video to H264 format with error handling"""
-    if not check_ffmpeg():
-        st.error("ffmpeg is not installed!")
-        st.markdown(install_ffmpeg_message())
-        return False
-        
-    command = [
-        "ffmpeg",
-        "-i", input_path,
-        "-vcodec", "libx264",
-        "-acodec", "aac",
-        "-y",  # Overwrite output file if it exists
-        output_path
-    ]
+def convert_to_h264(input_path):
+    """Convert video to H264 format"""
+    temp_output = tempfile.NamedTemporaryFile(delete=False, suffix='_h264.mp4')
+    temp_output_path = temp_output.name
+    temp_output.close()
     
     try:
+        command = [
+            "ffmpeg",
+            "-i", input_path,
+            "-vcodec", "libx264",
+            "-acodec", "aac",
+            "-y",
+            temp_output_path
+        ]
+        
         result = subprocess.run(command, capture_output=True, text=True)
-        if result.returncode != 0:
-            st.error(f"FFmpeg conversion error: {result.stderr}")
-            return False
-        return True
+        
+        if result.returncode == 0:
+            return temp_output_path
+        else:
+            st.error(f"Conversion error: {result.stderr}")
+            os.unlink(temp_output_path)
+            return None
+            
     except Exception as e:
-        st.error(f"Error during video conversion: {str(e)}")
-        return False
+        st.error(f"Error during conversion: {str(e)}")
+        if os.path.exists(temp_output_path):
+            os.unlink(temp_output_path)
+        return None
 
 
-# def exercise_page(exercise_name):
-#     st.markdown(f'<div class="exercise-title">{exercise_name.title()} Form Tracker</div>', unsafe_allow_html=True)
-    
-#     left_col, right_col = st.columns([1, 1])
-    
-#     with left_col:
-#         instructions = {
-#             'pushup': """
-#             <div class="exercise-instructions">
-#                 <h2 class="instructions-title">Push-up Instructions:</h2>
-#                 <div class="camera-note">
-#                     NOTE: Position yourself so your left side (left shoulder, left arm, left leg) faces the camera. Ensure Only 1 Person is in the frame.
-#                 </div>
-#                 <ol>
-#                     <li>Start in a plank position with hands shoulder-width apart</li>
-#                     <li>Keep your core tight and back straight</li>
-#                     <li>Lower your body until chest nearly touches the ground</li>
-#                     <li>Push back up to starting position</li>
-#                     <li>Maintain proper form throughout the movement</li>
-#                 </ol>
-#             </div>
-#             """,
-#             'deadlift': """
-#             <div class="exercise-instructions">
-#                 <h2 class="instructions-title">Deadlift Instructions:</h2>
-#                 <div class="camera-note">
-#                     NOTE: Position yourself so your left side (left shoulder, left arm, left leg) faces the camera. Ensure Only 1 Person is in the frame.
-#                 </div>
-#                 <ol>
-#                     <li>Stand with feet hip-width apart</li>
-#                     <li>Bend at hips and knees to grasp the bar</li>
-#                     <li>Keep back straight and chest up</li>
-#                     <li>Push through heels to lift the bar</li>
-#                     <li>Return to starting position with controlled movement</li>
-#                 </ol>
-#             </div>
-#             """,
-#             'bicep': """
-#             <div class="exercise-instructions">
-#                 <h2 class="instructions-title">Bicep Curl Instructions:</h2>
-#                 <div class="camera-note">
-#                     NOTE: Position yourself so your left side (left shoulder, left arm, left leg) faces the camera. Ensure Only 1 Person is in the frame.
-#                 </div>
-#                 <ol>
-#                     <li>Stand with feet shoulder-width apart</li>
-#                     <li>Hold dumbbells at your sides</li>
-#                     <li>Keep elbows close to your body</li>
-#                     <li>Curl weights up towards shoulders</li>
-#                     <li>Lower weights back down with control</li>
-#                 </ol>
-#             </div>
-#             """
-#         }
-#         st.markdown(instructions[exercise_name], unsafe_allow_html=True)
-
-
-#     with right_col:
-#         st.markdown('<div class="section-container">', unsafe_allow_html=True)
-#         st.markdown('<p class="section-title">Demo Video</p>', unsafe_allow_html=True)
-        
-#         # Use the new display_video function
-#         display_cached_video(exercise_name)
-        
-#         st.markdown('</div>', unsafe_allow_html=True)
-
-#         # Interactive sections
-#         tab1 = st.tabs(["📤 Upload Video"])  # Removed second tab
-#         #tab1, tab2 = st.tabs(["📤 Upload Video", "📹 Live Tracking"])
-        
-#     with tab1:
-#         st.markdown('<div class="section-container">', unsafe_allow_html=True)
-#         uploaded_file = st.file_uploader(
-#             "Upload a video for form analysis",
-#             type=['mp4', 'mov', 'avi'],
-#             key=f"upload_{exercise_name}"
-#         )
-#         if uploaded_file:
-#             handle_video_upload(exercise_name, uploaded_file)
-#         st.markdown('</div>', unsafe_allow_html=True)
-        
-#         # with tab2:
-#         #     st.markdown('<div class="section-container">', unsafe_allow_html=True)
-#         #     if st.button("Start Live Tracking", key=f"live_{exercise_name}"):
-#         #         st.info("Live tracking functionality will be implemented here.")
-#         #     st.markdown('</div>', unsafe_allow_html=True)
 
 def exercise_page(exercise_name):
     st.markdown(f'<div class="exercise-title">{exercise_name.title()} Form Tracker</div>', unsafe_allow_html=True)
@@ -839,7 +791,8 @@ def exercise_page(exercise_name):
             <div class="exercise-instructions">
                 <h2 class="instructions-title">Push-up Instructions:</h2>
                 <div class="camera-note">
-                    NOTE: Position yourself so your left side (left shoulder, left arm, left leg) faces the camera. Ensure Only 1 Person is in the frame.
+                    NOTE: Position yourself so your left side faces the camera. 
+                    Ensure your full body is visible and only one person is in frame.
                 </div>
                 <ol>
                     <li>Start in a plank position with hands shoulder-width apart</li>
@@ -854,7 +807,8 @@ def exercise_page(exercise_name):
             <div class="exercise-instructions">
                 <h2 class="instructions-title">Deadlift Instructions:</h2>
                 <div class="camera-note">
-                    NOTE: Position yourself so your left side (left shoulder, left arm, left leg) faces the camera. Ensure Only 1 Person is in the frame.
+                    NOTE: Position yourself so your left side faces the camera. 
+                    Ensure your full body is visible and only one person is in frame.
                 </div>
                 <ol>
                     <li>Stand with feet hip-width apart</li>
@@ -869,7 +823,8 @@ def exercise_page(exercise_name):
             <div class="exercise-instructions">
                 <h2 class="instructions-title">Bicep Curl Instructions:</h2>
                 <div class="camera-note">
-                    NOTE: Position yourself so your left side (left shoulder, left arm, left leg) faces the camera. Ensure Only 1 Person is in the frame.
+                    NOTE: Position yourself so your left arm is visible to  the camera. 
+                    Ensure your full body is visible and only one person is in frame.
                 </div>
                 <ol>
                     <li>Stand with feet shoulder-width apart</li>
@@ -886,32 +841,81 @@ def exercise_page(exercise_name):
     with right_col:
         st.markdown('<div class="section-container">', unsafe_allow_html=True)
         st.markdown('<p class="section-title">Demo Video</p>', unsafe_allow_html=True)
-        
-        # Use the new display_video function
         display_cached_video(exercise_name)
-        
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # Interactive sections - Upload Video only
-        st.markdown('<div class="upload-section">', unsafe_allow_html=True)
-        st.markdown('### Upload Video for Analysis', unsafe_allow_html=True)
+        # Create tabs for upload and live tracking
+        tab1, tab2 = st.tabs(["📤 Upload Video", "📹 Live Tracking"])
+        
+    with tab1:
+        st.markdown('<div class="upload-container">', unsafe_allow_html=True)
+        add_video_css()  # Add the CSS for video styling
+        
         uploaded_file = st.file_uploader(
             "Upload a video for form analysis",
             type=['mp4', 'mov', 'avi'],
             key=f"upload_{exercise_name}"
         )
+        
         if uploaded_file:
             handle_video_upload(exercise_name, uploaded_file)
+            
         st.markdown('</div>', unsafe_allow_html=True)
 
 
+        with tab2:
+            st.markdown('<div class="live-tracking-container">', unsafe_allow_html=True)
+            
+            # Add camera permission warning
+            st.warning("⚠️ This feature requires camera access. Please ensure your camera is connected and available.")
+            
+            # Add live tracking button with error handling
+            if st.button("Start Live Tracking", key=f"live_{exercise_name}"):
+                try:
+                    # Check camera availability before starting
+                    cap = cv2.VideoCapture(0)
+                    if not cap.isOpened():
+                        st.error("Could not access webcam. Please check your camera connection and permissions.")
+                        cap.release()
+                    else:
+                        cap.release()
+                        # Show tracking instructions
+                        st.info("Press 'q' in the video window to stop tracking")
+                        # Start live tracking
+                        handle_live_tracking(exercise_name)
+                except Exception as e:
+                    st.error(f"An error occurred: {str(e)}")
+                    if 'cap' in locals():
+                        cap.release()
+                    cv2.destroyAllWindows()
+            
+            # Add helpful tips for live tracking
+            with st.expander("Tips for best tracking results"):
+                st.markdown("""
+                - Ensure good lighting in your workout area
+                - Position yourself so your left side faces the camera
+                - Keep your full body visible in the frame
+                - Wear contrasting clothes to your background
+                - Clear the area of other people or moving objects
+                """)
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    # Add back button at the bottom of the page
+    if st.button("⬅️ Back to Exercise Selection", key=f"back_{exercise_name}"):
+        st.session_state.current_page = 'exercise_selection'
+        st.rerun()  # Updated from st.experimental_rerun()
+
 def main():
-    set_background()
+    # Initialize session state variables
+    if 'current_page' not in st.session_state:
+        st.session_state.current_page = 'home'
+    if 'tracking_active' not in st.session_state:
+        st.session_state.tracking_active = False
     
-    # Preload videos at startup
+    set_background()
     preload_videos()
     
-    # Rest of your main() function remains the same
     if st.session_state.current_page == 'home':
         home_page()
     elif st.session_state.current_page == 'exercise_selection':
@@ -923,6 +927,8 @@ def main():
     if st.session_state.current_page != 'home':
         if st.button("Back to Home", key=f"home_btn_{st.session_state.current_page}"):
             st.session_state.current_page = 'home'
+            # Reset tracking state when returning home
+            st.session_state.tracking_active = False
 
 if __name__ == "__main__":
     main()
