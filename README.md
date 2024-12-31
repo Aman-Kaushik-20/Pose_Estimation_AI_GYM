@@ -1,5 +1,8 @@
 # Pose Power Gym
 
+https://github.com/user-attachments/assets/885ec838-4478-4073-85a3-f318cc015dee
+
+
 An AI-powered application that helps users maintain proper form during common strength training exercises by analyzing exercise videos using pose estimation.
 
 ## Problem Statement
