@@ -845,9 +845,11 @@ def exercise_page(exercise_name):
         st.markdown('</div>', unsafe_allow_html=True)
 
         # Create tabs for upload and live tracking
-        tab1, tab2 = st.tabs(["📤 Upload Video", "📹 Live Tracking"])
-        
-    with tab1:
+        # tab1, tab2 = st.tabs(["📤 Upload Video", "📹 Live Tracking"])
+        tab1 = st.tabs(["📤 Upload Video"])
+
+
+    with tab1[0]:
         st.markdown('<div class="upload-container">', unsafe_allow_html=True)
         add_video_css()  # Add the CSS for video styling
         
@@ -863,43 +865,43 @@ def exercise_page(exercise_name):
         st.markdown('</div>', unsafe_allow_html=True)
 
 
-        with tab2:
-            st.markdown('<div class="live-tracking-container">', unsafe_allow_html=True)
+        # with tab2:
+        #     st.markdown('<div class="live-tracking-container">', unsafe_allow_html=True)
             
-            # Add camera permission warning
-            st.warning("⚠️ This feature requires camera access. Please ensure your camera is connected and available.")
+        #     # Add camera permission warning
+        #     st.warning("⚠️ This feature requires camera access. Please ensure your camera is connected and available.")
             
-            # Add live tracking button with error handling
-            if st.button("Start Live Tracking", key=f"live_{exercise_name}"):
-                try:
-                    # Check camera availability before starting
-                    cap = cv2.VideoCapture(0)
-                    if not cap.isOpened():
-                        st.error("Could not access webcam. Please check your camera connection and permissions.")
-                        cap.release()
-                    else:
-                        cap.release()
-                        # Show tracking instructions
-                        st.info("Press 'q' in the video window to stop tracking")
-                        # Start live tracking
-                        handle_live_tracking(exercise_name)
-                except Exception as e:
-                    st.error(f"An error occurred: {str(e)}")
-                    if 'cap' in locals():
-                        cap.release()
-                    cv2.destroyAllWindows()
+        #     # Add live tracking button with error handling
+        #     if st.button("Start Live Tracking", key=f"live_{exercise_name}"):
+        #         try:
+        #             # Check camera availability before starting
+        #             cap = cv2.VideoCapture(0)
+        #             if not cap.isOpened():
+        #                 st.error("Could not access webcam. Please check your camera connection and permissions.")
+        #                 cap.release()
+        #             else:
+        #                 cap.release()
+        #                 # Show tracking instructions
+        #                 st.info("Press 'q' in the video window to stop tracking")
+        #                 # Start live tracking
+        #                 handle_live_tracking(exercise_name)
+        #         except Exception as e:
+        #             st.error(f"An error occurred: {str(e)}")
+        #             if 'cap' in locals():
+        #                 cap.release()
+        #             cv2.destroyAllWindows()
             
-            # Add helpful tips for live tracking
-            with st.expander("Tips for best tracking results"):
-                st.markdown("""
-                - Ensure good lighting in your workout area
-                - Position yourself so your left side faces the camera
-                - Keep your full body visible in the frame
-                - Wear contrasting clothes to your background
-                - Clear the area of other people or moving objects
-                """)
+            # # Add helpful tips for live tracking
+            # with st.expander("Tips for best tracking results"):
+            #     st.markdown("""
+            #     - Ensure good lighting in your workout area
+            #     - Position yourself so your left side faces the camera
+            #     - Keep your full body visible in the frame
+            #     - Wear contrasting clothes to your background
+            #     - Clear the area of other people or moving objects
+            #     """)
             
-            st.markdown('</div>', unsafe_allow_html=True)
+            # st.markdown('</div>', unsafe_allow_html=True)
 
     # Add back button at the bottom of the page
     if st.button("⬅️ Back to Exercise Selection", key=f"back_{exercise_name}"):
