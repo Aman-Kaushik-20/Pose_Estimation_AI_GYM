@@ -145,23 +145,6 @@ if angle < 30 and stage == 'down':
     counter += 1
 ```
 
-## Installation
-
-1. Clone the repository
-```bash
-git clone https://github.com/yourusername/gym-form-assistant.git
-```
-
-2. Install dependencies
-```bash
-pip install -r requirements.txt
-```
-
-3. Run the application
-```bash
-streamlit run app.py
-```
-
 ## Required Libraries
 ```python
 import streamlit as st
