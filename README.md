@@ -119,9 +119,9 @@ hip_angle = calculate_angle(shoulder, hips, knee)
 knee_angle = calculate_angle(hips, knee, ankle)
 
 # Stage detection
-if hip_angle < 150 and stage != "Down":
+if hip_angle < 110 and stage != "Down":
     stage = "Down"
-elif 150 <= hip_angle < 160 and (stage == "Down" or stage == "Lockout"):
+elif 110 <= hip_angle < 160 and (stage == "Down" or stage == "Lockout"):
     stage = "Up"
 elif 160 <= hip_angle <= 180 and stage == "Up":
     stage = "Lockout"
