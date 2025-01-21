@@ -95,6 +95,18 @@ def calculate_angle(a, b, c):
     if angle > 180.0:
         angle = 360-angle
     return angle
+
+
+def calculate_angle_x_axis(a, b):
+    """Calculate angle between two points and x-axis"""
+    a = np.array(a)
+    b = np.array(b)
+    radians = np.arctan2(a[1]-b[1], a[0]-b[0])
+    angle = np.abs(radians*180.0/np.pi)
+    if angle > 180.0:
+        angle = 360-angle
+    return angle
+
 ```
 
 #### Exercise Processing Examples
