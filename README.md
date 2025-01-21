@@ -76,8 +76,6 @@ import streamlit as st
 import cv2
 import mediapipe as mp
 import numpy as np
-from PIL import Image
-import tempfile
 from datetime import datetime
 ```
 
@@ -110,6 +108,38 @@ def calculate_angle_x_axis(a, b):
 ```
 
 #### Exercise Processing Examples
+
+```python
+import cv2
+import mediapipe as mp
+
+def process_video(input_path):
+    cap = cv2.VideoCapture(input_path)
+    if not cap.isOpened():
+        raise ValueError(f"Error: Could not open video file at {input_path}")
+
+    # Get video properties
+    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    # Initialize Mediapipe Pose
+    mp_pose = mp.solutions.pose
+    with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            # Process the frame
+            image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            image.flags.writeable = False
+            results = pose.process(image)
+            try:
+                landmarks = results.pose_landmarks.landmark
+
+```
+![image](https://github.com/user-attachments/assets/8332acf2-e71a-42e1-a2f9-f97b59de5008)
+
 
 1. Bicep Curl Detection:
 ```python
@@ -172,20 +202,11 @@ if angle < 30 and stage == 'down':
 
 ## Challenges Faced
 
-1. **Video Processing**:
-   - Handling different video formats
-   - Ensuring smooth video playback
-   - Managing temporary file storage
 
-2. **Pose Detection**:
+**Pose Detection**:
    - Improving accuracy in various lighting conditions
    - Handling edge cases in exercise movements
    - Maintaining consistent landmark tracking
-
-3. **Performance Optimization**:
-   - Reducing processing latency
-   - Managing memory usage
-   - Optimizing video rendering
 
 ## Results
 
@@ -213,11 +234,4 @@ The application successfully:
    - Improve processing speed
    - Enhance mobile responsiveness
 
-## Tech Stack
 
-- Python 3.8+
-- Streamlit
-- OpenCV
-- MediaPipe
-- NumPy
-- FFmpeg
