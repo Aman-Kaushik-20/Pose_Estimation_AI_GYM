@@ -70,6 +70,17 @@ Many gym-goers struggle with maintaining proper form during exercises, which can
 │   └── bicep_processor.py
 ```
 
+## Required Libraries
+```python
+import streamlit as st
+import cv2
+import mediapipe as mp
+import numpy as np
+from PIL import Image
+import tempfile
+from datetime import datetime
+```
+
 ### Core Components
 
 #### Angle Calculation
@@ -109,6 +120,8 @@ if angle < 40 and stage == 'down':
 2. Deadlift Detection:
 ```python
 # Get coordinates
+mp_drawing = mp.solutions.drawing_utils
+mp_pose = mp.solutions.pose
 shoulder = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value]
 hips = landmarks[mp_pose.PoseLandmark.LEFT_HIP.value]
 knee = landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value]
@@ -143,17 +156,6 @@ if angle > 160:
 if angle < 30 and stage == 'down':
     stage = "up"
     counter += 1
-```
-
-## Required Libraries
-```python
-import streamlit as st
-import cv2
-import mediapipe as mp
-import numpy as np
-from PIL import Image
-import tempfile
-from datetime import datetime
 ```
 
 ## Challenges Faced
